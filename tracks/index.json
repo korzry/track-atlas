@@ -210,6 +210,34 @@
       "poster_png": "tracks/fuji/raw/render/fuji.png"
     },
     {
+      "slug": "high-plains-raceway",
+      "name": "High Plains Raceway",
+      "aka": [
+        "High Plains",
+        "HPR"
+      ],
+      "country": "US",
+      "location": {
+        "lat": 39.736,
+        "lon": -103.897,
+        "locality": "Deer Trail",
+        "region": "Colorado",
+        "timezone": "America/Denver"
+      },
+      "series": [],
+      "layouts": [
+        {
+          "id": "full",
+          "name": "Full Course",
+          "length_m": 4103.8272,
+          "corners": 16,
+          "direction": "clockwise"
+        }
+      ],
+      "poster": "tracks/high-plains-raceway/raw/render/high-plains-raceway.svg",
+      "poster_png": "tracks/high-plains-raceway/raw/render/high-plains-raceway.png"
+    },
+    {
       "slug": "hungaroring",
       "name": "Hungaroring",
       "aka": [

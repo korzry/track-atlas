@@ -112,8 +112,14 @@ def build_svg(slug: str, layout_id: str | None) -> str:
     corners_ordered = sorted(corners, key=lambda c: c["number"])
 
     traced = None
+    outline_path = tdir / "raw" / layout["geometry"]["centerline"]
+    if outline_path.exists():
+        outline = json.loads(outline_path.read_text())
+        traced = next((feature["geometry"]["coordinates"]
+                       for feature in outline.get("features", [])
+                       if feature.get("properties", {}).get("role") == "outline"), None)
     rel_path = tdir / "raw" / "osm-relation.json"
-    if rel_path.exists():
+    if not traced and rel_path.exists():
         try:
             traced = relation_centerline(json.loads(rel_path.read_text()))
         except Exception:
@@ -222,7 +228,7 @@ def build_svg(slug: str, layout_id: str | None) -> str:
         svg.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="7" fill="{accent}" '
                    f'stroke="#0a0c12" stroke-width="2.5" filter="url(#glow)"/>')
         svg.append(f'<text x="{px:.1f}" y="{py+3.4:.1f}" font-size="9" font-weight="700" '
-                   f'fill="#0a0c12" text-anchor="middle">{c["number"]}</text>')
+                   f'fill="#0a0c12" text-anchor="middle">{c.get("code", c["number"])}</text>')
 
     # Build label set: one entry per complex (anchored at its mid corner) plus
     # one per *named* solo corner. Unnamed corners (only a "Turn N" fallback)
@@ -286,6 +292,12 @@ def build_svg(slug: str, layout_id: str | None) -> str:
         px, py = l["dot"]
         anchor = "start" if l["side"] == "right" else "end"
         tx = l["lx"] + (8 if anchor == "start" else -8)
+        # Leave enough room for the whole label at the canvas boundary.
+        estimated_width = len(l["text"]) * 9
+        if anchor == "end":
+            tx = max(tx, estimated_width + 20)
+        else:
+            tx = min(tx, W - estimated_width - 20)
         svg.append(f'<line x1="{px:.1f}" y1="{py:.1f}" x2="{l["lx"]:.1f}" y2="{l["ly"]:.1f}" '
                    f'stroke="{accent}" stroke-opacity="0.45" stroke-width="1.3"/>')
         svg.append(f'<text x="{tx:.1f}" y="{l["ly"]+4:.1f}" '
@@ -347,11 +359,15 @@ def build_svg(slug: str, layout_id: str | None) -> str:
         ty += 22
         chip_y = ty
         chip_x = panel_x + 28
-        for cc in comps:
+        for index, cc in enumerate(comps):
             wch = 14 + len(cc) * 8
             if chip_x + wch > panel_x + 350:
                 chip_x = panel_x + 28
                 chip_y += 34
+            if chip_y > H - MARGIN - 38:
+                svg.append(f'<text x="{panel_x+28}" y="{H-MARGIN-12}" font-size="12" '
+                           f'fill="#8794ab">+ {len(comps)-index} more in dataset</text>')
+                break
             svg.append(f'<rect x="{chip_x}" y="{chip_y-16}" width="{wch}" height="24" rx="12" '
                        f'fill="{accent}" fill-opacity="0.16" stroke="{accent}" stroke-opacity="0.5"/>')
             svg.append(f'<text x="{chip_x+wch/2:.0f}" y="{chip_y+1}" font-size="12" '

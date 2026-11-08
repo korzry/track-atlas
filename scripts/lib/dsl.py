@@ -108,7 +108,9 @@ class Track:
 
     def layout(self, id: str, name: str, **fields) -> Layout:
         """Declare a layout: length_m, direction, lovely (key into the track's
-        lovely map), start_finish, centerline, pit, aka, active_years, series."""
+        lovely map), start_finish, centerline, pit, aka, active_years, series.
+        For bbox-only layouts, osm_way_ids selects reviewed OSM ways without
+        name filters and splits internal junctions before stitching."""
         entry = {"id": id, "name": name, **fields}
         self.src["layouts"].append(entry)
         lo = self._layouts[id] = Layout(self, id, entry)

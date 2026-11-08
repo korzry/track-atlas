@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -386,8 +387,37 @@ def generate_track(slug: str) -> dict:
             # Spatial-stitch fallback: chain the bbox raceway ways into a
             # closed loop (works when ways are named after the circuit, not
             # corners -- Fuji, Miami, Losail, Jeddah, Laguna Seca).
-            stitched = stitch_circuit_ways(osm.get("elements", []),
-                                           expected_m=layout.get("length_m"))
+            stitch_elements = osm.get("elements", [])
+            stitch_options = {}
+            if layout.get("osm_way_ids"):
+                # Reviewed layout membership overrides name heuristics: a main
+                # straight can be named after a shorter configuration.
+                way_ids = set(layout["osm_way_ids"])
+                stitch_elements = [element for element in stitch_elements
+                                   if element.get("id") in way_ids
+                                   and element.get("type") == "way"]
+                found_ids = {element["id"] for element in stitch_elements}
+                if found_ids != way_ids:
+                    raise ValueError(f"Missing curated OSM ways: {way_ids - found_ids}")
+                # OSM junctions can lie inside a way. Split there so the
+                # stitcher can follow the full lap through layout branches.
+                node_uses = {}
+                for element in stitch_elements:
+                    for node in set(element.get("nodes", [])):
+                        node_uses[node] = node_uses.get(node, 0) + 1
+                segments = []
+                for element in stitch_elements:
+                    nodes = element.get("nodes", [])
+                    cuts = [0] + [index for index in range(1, len(nodes) - 1)
+                                  if node_uses[nodes[index]] > 1] + [len(nodes) - 1]
+                    for start, end in zip(cuts, cuts[1:]):
+                        segments.append({**element,
+                                         "geometry": element["geometry"][start:end + 1]})
+                stitch_elements = segments
+                stitch_options["drop"] = re.compile(r"(?!)")
+            stitched = stitch_circuit_ways(stitch_elements,
+                                           expected_m=layout.get("length_m"),
+                                           **stitch_options)
             if stitched and len(stitched) >= 8:
                 geometry_summary.setdefault("selected", "stitched_fallback")
                 score, reasons = _centerline_quality(stitched, layout.get("length_m"))
@@ -519,7 +549,7 @@ def generate_track(slug: str) -> dict:
         point_layers.append({"id": "corners", "kind": "corners", "label": "Corner Apexes", "items": corner_points})
 
         range_layers = []
-        sectors = sectors_s1s3(lovely)
+        sectors = sectors_s1s3(lovely) if lovely else []
         if sectors:
             range_layers.append({
                 "id": "timing_sectors", "kind": "timing_sectors", "label": "Timing Sectors", "coverage": "partition",

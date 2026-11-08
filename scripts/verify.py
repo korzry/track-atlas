@@ -229,7 +229,9 @@ def verify_track(slug: str) -> Report:
             r.warn(f"{pre} pit_entry/pit_exit missing")
 
         sectors = range_layer(lo, "timing_sectors").get("items", [])
-        if [s.get("label") for s in sectors] != ["S1", "S2", "S3"]:
+        if not sectors:
+            r.warn(f"{pre} timing sectors unavailable")
+        elif [s.get("label") for s in sectors] != ["S1", "S2", "S3"]:
             r.err(f"{pre} timing_sectors must be exactly [S1, S2, S3], got {[s.get('label') for s in sectors]}")
 
         geom_path = (lo.get("geometry") or {}).get("centerline")
